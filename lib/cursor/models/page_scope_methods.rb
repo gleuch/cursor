@@ -12,6 +12,16 @@ module Cursor
       end
     end
 
+    # Number results returned
+    def total_results
+      @total_results ||= count
+    end
+
+    # Total number of results
+    def total_entries
+      @total_entries ||= limit(nil).count
+    end
+
     # TODO: are these 2 methods triggering multiple db hits? want to run this on cached result
     def next_cursor
       @_next_cursor ||= all.last.try(:id)
@@ -22,12 +32,16 @@ module Cursor
     end
 
     def next_url request_url
+      return nil if next_cursor.nil? || current_cursor == next_cursor
+      return nil if current_cursor.nil? && direction == :after
       direction == :after ? 
         after_url(request_url, next_cursor) :
         before_url(request_url, next_cursor)
     end
 
     def prev_url request_url
+      return nil if prev_cursor.nil? || current_cursor == prev_cursor
+      return nil if current_cursor.nil? && direction != :after
       direction == :after ? 
         before_url(request_url, prev_cursor) :
         after_url(request_url, prev_cursor)
@@ -49,8 +63,8 @@ module Cursor
       base, params = request_url.split('?', 2)
       params = Rack::Utils.parse_nested_query(params || '')
       params.stringify_keys!
-      params.delete('before')
-      params.delete('after')
+      params.delete(Cursor.config.before_param_name.to_s)
+      params.delete(Cursor.config.after_param_name.to_s)
       [base, params]
     end
 
